@@ -160,6 +160,26 @@ void TcpModel::sendDataToClient(QString type, QString fileName, quint64 fileSize
 }
 
 /// <summary>
+/// 对接收到的数据进行解析
+/// </summary>
+/// <param name="buf">buf</param>
+void TcpModel::receAnalysisFromClient(QByteArray buf)
+{
+	//协商好 传输的json格式/直接是数据流
+	//如果是Json格式，做进一步解析
+	if (QJsonDocument::fromJson(buf).isObject())
+	{
+		//qDebug() << "GetBuffer:\n" << buf << "\n\n\n";
+		receJsonFromClient(QJsonDocument::fromJson(buf).object());
+	}
+	//如果不为json格式，那就是数据
+	else
+	{
+		receDataFromClient(buf);
+	}
+}
+
+/// <summary>
 /// 对接到的json数据进行二次解析
 /// </summary>
 /// <param name="obj">Json对象</param>
@@ -400,30 +420,22 @@ void TcpModel::analysisJson(QString fileName, QByteArray buf)
 void TcpModel::readyRead()
 {
 	QByteArray buf = socket->readAll();
-	//qDebug() << "lcy client:\n" + buf + "\n";
-	//协商好 传输的json格式/直接是数据流
-	//如果是Json格式，做进一步解析
-	if (QJsonDocument::fromJson(buf).isObject())
+	buf = partialBlockBuf + buf;
+	//解析完成的数据大小
+	while (buf.size() != 0)
 	{
-		receJsonFromClient(QJsonDocument::fromJson(buf).object());
-	}
-	//如果不为json格式，那就是数据
-	else
-	{
-		if (blockSize == 0)
+		int nowSize = QByteArrayHelper::QByteArrayToInt(buf, 0);
+		if (buf.size() - TCPMODEL_HEAD_SIZE >= nowSize)
 		{
-			blockSize = QByteArrayHelper::QByteArrayToInt(buf, 0);
-			blockBuf += buf.mid(4, buf.size() - 4);
+			receAnalysisFromClient(buf.mid(TCPMODEL_HEAD_SIZE, nowSize));
+			buf = buf.mid(TCPMODEL_HEAD_SIZE + nowSize, buf.size() - (TCPMODEL_HEAD_SIZE + nowSize));
+			if (partialBlockBuf.size() != 0)partialBlockBuf = {};
 		}
 		else
 		{
-			blockBuf += buf;
+			partialBlockBuf = buf;
+			buf = buf.mid(buf.size(), buf.size() - buf.size());
 		}
-		if (blockBuf.size() < blockSize)
-			return;
-		receDataFromClient(blockBuf);
-		blockBuf = {};
-		blockSize = 0;
 	}
 }
 

@@ -48,9 +48,9 @@ private:
 	void sendDataToClient(QString type, QString fileName, quint64 fileSize);	//发送数据
 
 	//recevice
-	QByteArray blockBuf = {};
-	int blockSize = 0;
+	QByteArray partialBlockBuf = {};
 	QList<TcpData*> receList;								//接收消息的列表
+	void receAnalysisFromClient(QByteArray buf);			//对接收到的数据进行解析
 	void receJsonFromClient(QJsonObject obj);				//对接到的json数据进行二次解析
 	void receHeadFromClient(QString type, QString fileName, quint64 fileSize, QString md5);	//解析Json得到的是头
 	void receMsgFromClient(QString msg, QString name, QString md5, int state);//解析Json得到的是消息
